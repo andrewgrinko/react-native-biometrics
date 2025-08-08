@@ -101,7 +101,7 @@ RCT_EXPORT_METHOD(createKeys: (NSDictionary *)params resolver:(RCTPromiseResolve
   });
 }
 
-RCT_EXPORT_METHOD(deleteKeys: (RCTPromiseResolveBlock)resolve params:(NSDictionary *)params rejecter:(RCTPromiseRejectBlock)reject) {
+RCT_EXPORT_METHOD(deleteKeys: (NSDictionary *)params resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
   dispatch_async(dispatch_get_global_queue( DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
     NSString *accessGroup = [RCTConvert NSString:params[@"accessGroup"]];
     BOOL biometricKeyExists = [self doesBiometricKeyExist:accessGroup];
@@ -209,7 +209,7 @@ RCT_EXPORT_METHOD(simplePrompt: (NSDictionary *)params resolver:(RCTPromiseResol
   });
 }
 
-RCT_EXPORT_METHOD(biometricKeysExist:(RCTPromiseResolveBlock)resolve params:(NSDictionary *)params  rejecter:(RCTPromiseRejectBlock)reject) {
+RCT_EXPORT_METHOD(biometricKeysExist: (NSDictionary *)params resolver:(RCTPromiseResolveBlock)resolve   rejecter:(RCTPromiseRejectBlock)reject) {
   dispatch_async(dispatch_get_global_queue( DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
     NSString *accessGroup = [RCTConvert NSString:params[@"accessGroup"]];
     BOOL biometricKeyExists = [self doesBiometricKeyExist:accessGroup];
