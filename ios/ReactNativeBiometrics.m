@@ -133,14 +133,16 @@ RCT_EXPORT_METHOD(createSignature: (NSDictionary *)params resolver:(RCTPromiseRe
     NSString *payload = [RCTConvert NSString:params[@"payload"]];
     NSString *accessGroup = [RCTConvert NSString:params[@"accessGroup"]];
     NSData *biometricKeyTag = [self getBiometricKeyTag];
-    NSDictionary *query = @{
+    NSMutableDictionary *query = [@{
                             (id)kSecClass: (id)kSecClassKey,
                             (id)kSecAttrApplicationTag: biometricKeyTag,
                             (id)kSecAttrKeyType: (id)kSecAttrKeyTypeRSA,
-                            (id)kSecAttrAccessGroup: accessGroup,
                             (id)kSecReturnRef: @YES,
                             (id)kSecUseOperationPrompt: promptMessage
-                            };
+                            } mutableCopy];
+    if (accessGroup) {
+       [query setValue:accessGroup forKey:(id)kSecAttrAccessGroup];
+    }
     SecKeyRef privateKey;
     OSStatus status = SecItemCopyMatching((__bridge CFDictionaryRef)query, (CFTypeRef *)&privateKey);
 
@@ -236,13 +238,15 @@ RCT_EXPORT_METHOD(biometricKeysExist: (NSDictionary *)params resolver:(RCTPromis
 
 - (BOOL)doesBiometricKeyExist:(NSString *)accessGroup {
   NSData *biometricKeyTag = [self getBiometricKeyTag];
-  NSDictionary *searchQuery = @{
+  NSMutableDictionary *searchQuery = [@{
                                 (id)kSecClass: (id)kSecClassKey,
                                 (id)kSecAttrApplicationTag: biometricKeyTag,
                                 (id)kSecAttrKeyType: (id)kSecAttrKeyTypeRSA,
-                                (id)kSecAttrAccessGroup: accessGroup,
                                 (id)kSecUseAuthenticationUI: (id)kSecUseAuthenticationUIFail
-                                };
+                                } mutableCopy];
+  if (accessGroup) {
+     [searchQuery setValue:accessGroup forKey:(id)kSecAttrAccessGroup];
+  }
 
   OSStatus status = SecItemCopyMatching((__bridge CFDictionaryRef)searchQuery, nil);
   return status == errSecSuccess || status == errSecInteractionNotAllowed;
@@ -250,12 +254,14 @@ RCT_EXPORT_METHOD(biometricKeysExist: (NSDictionary *)params resolver:(RCTPromis
 
 -(OSStatus) deleteBiometricKey:(NSString *)accessGroup {
   NSData *biometricKeyTag = [self getBiometricKeyTag];
-  NSDictionary *deleteQuery = @{
+  NSMutableDictionary *deleteQuery = [@{
                                 (id)kSecClass: (id)kSecClassKey,
                                 (id)kSecAttrApplicationTag: biometricKeyTag,
                                 (id)kSecAttrKeyType: (id)kSecAttrKeyTypeRSA,
-                                (id)kSecAttrAccessGroup: accessGroup
-                                };
+                                } mutableCopy];
+  if (accessGroup) {
+      [deleteQuery setValue:accessGroup forKey:(id)kSecAttrAccessGroup];
+  }
 
   OSStatus status = SecItemDelete((__bridge CFDictionaryRef)deleteQuery);
   return status;
