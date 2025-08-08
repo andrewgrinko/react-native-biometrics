@@ -16,7 +16,7 @@ RCT_EXPORT_MODULE(ReactNativeBiometrics);
 RCT_EXPORT_METHOD(isSensorAvailable: (NSDictionary *)params resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
   LAContext *context = [[LAContext alloc] init];
   NSError *la_error = nil;
-  BOOL allowDeviceCredentials = [RCTConvert BOOL:params[@"allowDeviceCredentials"]];
+    BOOL allowDeviceCredentials = [RCTConvert BOOL:params[@"allowDeviceCredentials"]];
   LAPolicy laPolicy = LAPolicyDeviceOwnerAuthenticationWithBiometrics;
 
   if (allowDeviceCredentials == TRUE) {
@@ -48,6 +48,7 @@ RCT_EXPORT_METHOD(createKeys: (NSDictionary *)params resolver:(RCTPromiseResolve
   dispatch_async(dispatch_get_global_queue( DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
     CFErrorRef error = NULL;
     BOOL allowDeviceCredentials = [RCTConvert BOOL:params[@"allowDeviceCredentials"]];
+    NSString *accessGroup = [RCTConvert NSString:params[@"accessGroup"]];
 
     SecAccessControlCreateFlags secCreateFlag = kSecAccessControlBiometryAny;
 
@@ -68,6 +69,7 @@ RCT_EXPORT_METHOD(createKeys: (NSDictionary *)params resolver:(RCTPromiseResolve
     NSDictionary *keyAttributes = @{
                                     (id)kSecClass: (id)kSecClassKey,
                                     (id)kSecAttrKeyType: (id)kSecAttrKeyTypeRSA,
+                                    (id)kSecAttrAccessGroup: accessGroup,
                                     (id)kSecAttrKeySizeInBits: @2048,
                                     (id)kSecPrivateKeyAttrs: @{
                                         (id)kSecAttrIsPermanent: @YES,
@@ -77,7 +79,7 @@ RCT_EXPORT_METHOD(createKeys: (NSDictionary *)params resolver:(RCTPromiseResolve
                                         }
                                     };
 
-    [self deleteBiometricKey];
+    [self deleteBiometricKey:accessGroup];
     NSError *gen_error = nil;
     id privateKey = CFBridgingRelease(SecKeyCreateRandomKey((__bridge CFDictionaryRef)keyAttributes, (void *)&gen_error));
 
@@ -99,12 +101,13 @@ RCT_EXPORT_METHOD(createKeys: (NSDictionary *)params resolver:(RCTPromiseResolve
   });
 }
 
-RCT_EXPORT_METHOD(deleteKeys: (RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
+RCT_EXPORT_METHOD(deleteKeys: (RCTPromiseResolveBlock)resolve params:(NSDictionary *)params rejecter:(RCTPromiseRejectBlock)reject) {
   dispatch_async(dispatch_get_global_queue( DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-    BOOL biometricKeyExists = [self doesBiometricKeyExist];
+    NSString *accessGroup = [RCTConvert NSString:params[@"accessGroup"]];
+    BOOL biometricKeyExists = [self doesBiometricKeyExist:accessGroup];
 
     if (biometricKeyExists) {
-      OSStatus status = [self deleteBiometricKey];
+      OSStatus status = [self deleteBiometricKey:accessGroup];
 
       if (status == noErr) {
         NSDictionary *result = @{
@@ -128,12 +131,13 @@ RCT_EXPORT_METHOD(createSignature: (NSDictionary *)params resolver:(RCTPromiseRe
   dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
     NSString *promptMessage = [RCTConvert NSString:params[@"promptMessage"]];
     NSString *payload = [RCTConvert NSString:params[@"payload"]];
-
+    NSString *accessGroup = [RCTConvert NSString:params[@"accessGroup"]];
     NSData *biometricKeyTag = [self getBiometricKeyTag];
     NSDictionary *query = @{
                             (id)kSecClass: (id)kSecClassKey,
                             (id)kSecAttrApplicationTag: biometricKeyTag,
                             (id)kSecAttrKeyType: (id)kSecAttrKeyTypeRSA,
+                            (id)kSecAttrAccessGroup: accessGroup,
                             (id)kSecReturnRef: @YES,
                             (id)kSecUseOperationPrompt: promptMessage
                             };
@@ -205,9 +209,10 @@ RCT_EXPORT_METHOD(simplePrompt: (NSDictionary *)params resolver:(RCTPromiseResol
   });
 }
 
-RCT_EXPORT_METHOD(biometricKeysExist: (RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
+RCT_EXPORT_METHOD(biometricKeysExist:(RCTPromiseResolveBlock)resolve params:(NSDictionary *)params  rejecter:(RCTPromiseRejectBlock)reject) {
   dispatch_async(dispatch_get_global_queue( DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-    BOOL biometricKeyExists = [self doesBiometricKeyExist];
+    NSString *accessGroup = [RCTConvert NSString:params[@"accessGroup"]];
+    BOOL biometricKeyExists = [self doesBiometricKeyExist:accessGroup];
 
     if (biometricKeyExists) {
       NSDictionary *result = @{
@@ -229,12 +234,13 @@ RCT_EXPORT_METHOD(biometricKeysExist: (RCTPromiseResolveBlock)resolve rejecter:(
   return biometricKeyTag;
 }
 
-- (BOOL) doesBiometricKeyExist {
+- (BOOL)doesBiometricKeyExist:(NSString *)accessGroup {
   NSData *biometricKeyTag = [self getBiometricKeyTag];
   NSDictionary *searchQuery = @{
                                 (id)kSecClass: (id)kSecClassKey,
                                 (id)kSecAttrApplicationTag: biometricKeyTag,
                                 (id)kSecAttrKeyType: (id)kSecAttrKeyTypeRSA,
+                                (id)kSecAttrAccessGroup: accessGroup,
                                 (id)kSecUseAuthenticationUI: (id)kSecUseAuthenticationUIFail
                                 };
 
@@ -242,12 +248,13 @@ RCT_EXPORT_METHOD(biometricKeysExist: (RCTPromiseResolveBlock)resolve rejecter:(
   return status == errSecSuccess || status == errSecInteractionNotAllowed;
 }
 
--(OSStatus) deleteBiometricKey {
+-(OSStatus) deleteBiometricKey:(NSString *)accessGroup {
   NSData *biometricKeyTag = [self getBiometricKeyTag];
   NSDictionary *deleteQuery = @{
                                 (id)kSecClass: (id)kSecClassKey,
                                 (id)kSecAttrApplicationTag: biometricKeyTag,
-                                (id)kSecAttrKeyType: (id)kSecAttrKeyTypeRSA
+                                (id)kSecAttrKeyType: (id)kSecAttrKeyTypeRSA,
+                                (id)kSecAttrAccessGroup: accessGroup
                                 };
 
   OSStatus status = SecItemDelete((__bridge CFDictionaryRef)deleteQuery);
